@@ -1,0 +1,75 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "df-hydromet-weu-dev-bi"
+		},
+		"ls_datalake_accountKey": {
+			"value": ""
+		},
+		"ls_infor_ln_connectionString": {
+			"value": ""
+		},
+		"ls_ott_global_password": {
+			"value": ""
+		},
+		"ls_ott_sql_dev_bi_password": {
+			"value": ""
+		},
+		"ls_ott_sql_staging_password": {
+			"value": ""
+		},
+		"ls_ott_staging_onPrem_password": {
+			"value": ""
+		},
+		"ls_datalake_properties_typeProperties_url": {
+			"value": "https://stadlshydrometweudevbi.dfs.core.windows.net/"
+		},
+		"ls_infor_dl_properties_typeProperties_url": {
+			"value": "@{linkedService().source_url}"
+		},
+		"ls_ott_global_properties_typeProperties_server": {
+			"value": "EWQMUCERP-PBI.ott.ewqg.com"
+		},
+		"ls_ott_global_properties_typeProperties_database": {
+			"value": "OTTGlobal"
+		},
+		"ls_ott_global_properties_typeProperties_userName": {
+			"value": "powerbietl"
+		},
+		"ls_ott_sql_dev_bi_properties_typeProperties_server": {
+			"value": "sqlsrv-hydromet-weu-dev-bi-002.public.65861838420e.database.windows.net,3342"
+		},
+		"ls_ott_sql_dev_bi_properties_typeProperties_database": {
+			"value": "Sqldb-hydromet-weu-dev-bi-02"
+		},
+		"ls_ott_sql_dev_bi_properties_typeProperties_userName": {
+			"value": "sqldevadmin"
+		},
+		"ls_ott_sql_staging_properties_typeProperties_server": {
+			"value": "sqlsrv-hydromet-weu-dev-bi-002.public.65861838420e.database.windows.net,3342"
+		},
+		"ls_ott_sql_staging_properties_typeProperties_database": {
+			"value": "Ott_dwh_staging"
+		},
+		"ls_ott_sql_staging_properties_typeProperties_userName": {
+			"value": "sqldevadmin"
+		},
+		"ls_ott_staging_onPrem_properties_typeProperties_server": {
+			"value": "EWQMUCERP-PBI.ott.ewqg.com"
+		},
+		"ls_ott_staging_onPrem_properties_typeProperties_database": {
+			"value": "di_prd_staging"
+		},
+		"ls_ott_staging_onPrem_properties_typeProperties_userName": {
+			"value": "ionetl"
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}
