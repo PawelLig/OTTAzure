@@ -1,0 +1,52 @@
+{
+	"name": "load_items_pipeline",
+	"properties": {
+		"activities": [
+			{
+				"name": "ingest csi",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "ingest_item_tables",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "dimention load",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "ingest csi",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "dim_load_item",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"folder": {
+			"name": "Daily Load Pipelines"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-03-07T09:50:35Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

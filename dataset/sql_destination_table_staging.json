@@ -1,0 +1,25 @@
+{
+	"name": "sql_destination_table_staging",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_ott_sql_staging",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"table_name": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlMITable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": {
+				"value": "@dataset().table_name",
+				"type": "Expression"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

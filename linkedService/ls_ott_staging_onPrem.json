@@ -1,0 +1,21 @@
+{
+	"name": "ls_ott_staging_onPrem",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "SqlServer",
+		"typeProperties": {
+			"server": "EWQMUCERP-PBI.ott.ewqg.com",
+			"database": "di_prd_staging",
+			"encrypt": "optional",
+			"trustServerCertificate": false,
+			"authenticationType": "SQL",
+			"userName": "ionetl",
+			"encryptedCredential": "eyJDcmVkZW50aWFsSWQiOiIwZjA3OTk2Ni1mOTAxLTQ4ZTktOWI1Ni05MzYxMzUwMzVmMTIiLCJWZXJzaW9uIjoiMi4wIiwiQ2xhc3NUeXBlIjoiTWljcm9zb2Z0LkRhdGFQcm94eS5Db3JlLkludGVyU2VydmljZURhdGFDb250cmFjdC5DcmVkZW50aWFsU1UwNkNZMTQifQ=="
+		},
+		"connectVia": {
+			"referenceName": "irkempten",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

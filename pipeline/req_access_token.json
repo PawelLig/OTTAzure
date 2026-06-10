@@ -1,0 +1,253 @@
+{
+	"name": "req_access_token",
+	"properties": {
+		"activities": [
+			{
+				"name": "rq_api_token",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Set secret",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set user name",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set password",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/x-www-form-urlencoded"
+					},
+					"url": "https://mingle-sso.eu1.inforcloudsuite.com:443/C5C9HP77DP74CQQC_PRD/as/token.oauth2",
+					"body": {
+						"value": "@concat('grant_type=password&client_id=C5C9HP77DP74CQQC_PRD~EnGhIRczxLAJ4mcteRuScWRUvHHY_HAMkyBEULIUo3Q&client_secret=',variables('secret'),'&username=',variables('username'),'&password=',variables('password'),'')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set access_token",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "rq_api_token",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "pipelineReturnValue",
+					"value": [
+						{
+							"key": "ret_access_token",
+							"value": {
+								"type": "Expression",
+								"content": "@concat('Bearer ', activity('rq_api_token').output.access_token)"
+							}
+						}
+					],
+					"setSystemVariable": true
+				}
+			},
+			{
+				"name": "secret",
+				"description": "ION API Secret",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "GET",
+					"url": "https://kv-hydromet-weu-001.vault.azure.net/secrets/ion-api-secret/8ffd998475b143daadfa5dd6bfdc68c0?api-version=7.0",
+					"authentication": {
+						"type": "MSI",
+						"resource": "https://vault.azure.net"
+					}
+				}
+			},
+			{
+				"name": "Set secret",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "secret",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "secret",
+					"value": {
+						"value": "@activity('secret').output.value",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "un",
+				"description": "Username attached to the API",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "GET",
+					"url": "https://kv-hydromet-weu-001.vault.azure.net/secrets/ion-api-un/98c70c32742e451c846e76aa3404bc69?api-version=7.0",
+					"authentication": {
+						"type": "MSI",
+						"resource": "https://vault.azure.net"
+					}
+				}
+			},
+			{
+				"name": "Set user name",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "un",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "username",
+					"value": {
+						"value": "@activity('un').output.value",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "pw",
+				"description": "ION API password",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "GET",
+					"url": "https://kv-hydromet-weu-001.vault.azure.net/secrets/io-api-pw/3880c0bcd89b41369abc33e28b8b9c8e?api-version=7.0",
+					"authentication": {
+						"type": "MSI",
+						"resource": "https://vault.azure.net"
+					}
+				}
+			},
+			{
+				"name": "Set password",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "pw",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "password",
+					"value": {
+						"value": "@activity('pw').output.value",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"base_url": {
+				"type": "string",
+				"defaultValue": "https://mingle-ionapi.eu1.inforcloudsuite.com/C5C9HP77DP74CQQC_PRD/DATAFABRIC/compass/v2/jobs/"
+			}
+		},
+		"variables": {
+			"access_token": {
+				"type": "String"
+			},
+			"query_url": {
+				"type": "String"
+			},
+			"query_id": {
+				"type": "String"
+			},
+			"api_status": {
+				"type": "String"
+			},
+			"secret": {
+				"type": "String"
+			},
+			"username": {
+				"type": "String"
+			},
+			"password": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Common Objects"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-08-28T12:37:46Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

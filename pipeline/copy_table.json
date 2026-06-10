@@ -1,0 +1,249 @@
+{
+	"name": "copy_table",
+	"properties": {
+		"activities": [
+			{
+				"name": "POST co sql_query",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Authorization": {
+							"value": "@pipeline().parameters.prm_access_token",
+							"type": "Expression"
+						},
+						"Content-Type": "text/plain",
+						"Accept-Encoding": "gzip, deflate, br"
+					},
+					"url": {
+						"value": "@pipeline().parameters.base_url",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "@concat('SELECT  *\n  FROM ',pipeline().parameters.prm_table_name)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set query_id",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "POST co sql_query",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "query_id",
+					"value": {
+						"value": "@activity('POST co sql_query').output.queryId",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Until1",
+				"type": "Until",
+				"dependsOn": [
+					{
+						"activity": "Set query_id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@or(or(equals(variables('api_status'),'FINISHED'),\n    equals(variables('api_status'), 'FAILED')),\n    equals(variables('api_status'), 'CANCELLED'))",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "query_status",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "GET",
+								"headers": {
+									"Authorization": {
+										"value": "@pipeline().parameters.prm_access_token",
+										"type": "Expression"
+									},
+									"Accept-Encoding": "gzip, deflate, br"
+								},
+								"url": {
+									"value": "@concat(pipeline().parameters.base_url,variables('query_id'),'/status')",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "job_status",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "query_status",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "api_status",
+								"value": {
+									"value": "@activity('query_status').output.status",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"timeout": "0.12:00:00"
+				}
+			},
+			{
+				"name": "load raw data",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Until1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "HttpReadSettings",
+							"requestMethod": "GET",
+							"additionalHeaders": {
+								"value": "@concat('Authorization: ', pipeline().parameters.prm_access_token)",
+								"type": "Expression"
+							}
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "SqlMISink",
+						"preCopyScript": {
+							"value": "@concat('truncate table raw.',pipeline().parameters.prm_table_name)",
+							"type": "Expression"
+						},
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "csv_source_dataset",
+						"type": "DatasetReference",
+						"parameters": {
+							"import_url": {
+								"value": "@concat(pipeline().parameters.base_url,variables('query_id'),'/result/?limit=100000&offset=0')",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "sql_destination_table",
+						"type": "DatasetReference",
+						"parameters": {
+							"table_name": {
+								"value": "@pipeline().parameters.prm_table_name",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"base_url": {
+				"type": "string",
+				"defaultValue": "https://mingle-ionapi.eu1.inforcloudsuite.com/C5C9HP77DP74CQQC_PRD/DATAFABRIC/compass/v2/jobs/"
+			},
+			"prm_table_name": {
+				"type": "string"
+			},
+			"prm_access_token": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"access_token": {
+				"type": "String"
+			},
+			"query_url": {
+				"type": "String"
+			},
+			"query_id": {
+				"type": "String"
+			},
+			"api_status": {
+				"type": "String"
+			},
+			"table_name": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Testing"
+		},
+		"annotations": [],
+		"lastPublishTime": "2024-08-22T07:29:06Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

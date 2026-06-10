@@ -1,0 +1,14 @@
+{
+	"name": "libCommonFunctions",
+	"properties": {
+		"type": "UDFLibrary",
+		"typeProperties": {
+			"sources": [],
+			"sinks": [],
+			"transformations": [],
+			"scriptLines": [
+				"RecordUpdateOn() as timestamp = currentTimestamp()"
+			]
+		}
+	}
+}

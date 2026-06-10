@@ -1,0 +1,75 @@
+{
+	"name": "load_bookings_pipeline",
+	"properties": {
+		"activities": [
+			{
+				"name": "ingest csi",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "ingest_booking_tables",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "fact load co",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "ingest csi",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "fact_load_customer_order",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "fact load sro",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "fact load co",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "fact_load_service_order",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"folder": {
+			"name": "Daily Load Pipelines"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-03-07T09:50:36Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,627 @@
+{
+	"name": "fact_load_customer_order",
+	"properties": {
+		"activities": [
+			{
+				"name": "stage customer order",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "truncate table stg.csi_customer_orders;\n\nWith OrderHeader as\n\t(SELECT \n\t\ttrim(oh.[co_num]) as co_num -- Order (Number)\n\t\t--,CAST(oh.[order_date] as datetime) AT TIME ZONE 'Central European Standard Time' as order_date2 -- Order Date\n\t\t,dateadd(HOUR,2, CAST(oh.[order_date] as datetime)) as order_date\n\t\t,CAST(oh.CreateDate as date) as CreateDate\n\t\t,oh.[cust_num] -- Customer\n\t\t,oh.[bill_to_country]\n\t\t,oh.bill_to_state\n\t\t,oh.bill_to_zip\n\t\t,oh.ship_to_country\n\t\t,oh.ship_to_state\n\t\t,oh.ship_to_zip\n\t\t,oh.[site_ref]\n\t\t,oh.[curr_code] -- Currency\n\t\t,oh.[exch_rate] -- Rate'\n\t\t,oh.[price] EstTotalPrice-- Price\n\t\t,oh.sales_tax + oh.sales_tax_2 + oh.sales_tax_t as Tax\n\t\t,oh.freight + oh.freight_t as Freight\n\t\t,oh.[slsman] -- Salesperson - External\n\t\t,oh.taken_by -- Taken by - internal\n\t\t,oh.[stat] OrderStatus-- order Status - Planned / Ordered / Complete / Stopped / History\n\t\t,oh.Uf_SF_Application [Application]\n\t\t,oh.invoiced\n\tFROM [raw].[csi_co_mst] oh\n\tWhere \n\toh.type = 'R')\n\t,\n\tOrderDetail as\n\t(\n\t\tSELECT \n\t\ttrim(od.[co_num]) as co_num -- Order (Number)\n\t\t,od.co_line\n\t\t,od.item\n\t\t,od.price_conv\n\t\t,od.qty_ordered_conv\n\t\t,od.disc\n\t\t,od.stat ItemStatus\n\t\t,od.DLDeleteIndicator\n\t\t,CAST(od.RecordDate as date) As RecordDate\n\t\t,dateadd(HOUR,2, CAST(od.due_date as datetime)) As due_date\n\t\t,dateadd(HOUR,2, CAST(od.promise_date as datetime)) As promise_date\n\t\t,CAST(od.CreateDate as date) As CreateDate\n\t\t,od.site_ref\n\t\t,od.stat As OrderLineStatus\n\t\tFROM [raw].[csi_coitem_mst] od\n\t)\n\tINSERT INTO stg.csi_customer_orders\n        (co_num\n\t\t,order_date\n\t\t,site_ref\n\t\t,bill_to_country\n\t\t,bill_to_state\n\t\t,bill_to_zip\n\t\t,ship_to_country\n\t\t,ship_to_state\n\t\t,ship_to_zip\n\t\t,OrderStatus\n\t\t,Tax\n\t\t,Freight\n\t\t,cust_num\n\t\t,Application\n\t\t,curr_code\n\t\t,slsman\n\t\t,taken_by\n\t\t,OrderCreateDate \n\t\t,co_line\n\t\t,item\n\t\t,price_conv\n\t\t,qty_ordered_conv\n\t\t,disc\n\t\t,OrderLineStatus\n\t\t,DLDeleteIndicator\n\t\t,RecordDate\n\t\t,due_date\n\t\t,promise_date\n\t\t,OrderlineCreateDate\n\t\t,invoiced)\n\tSelect \n\t\th.co_num\n\t\t,h.order_date\n\t\t,h.site_ref\n\t\t,h.bill_to_country\n\t\t,h.bill_to_state\n\t\t,h.bill_to_zip\n\t\t,h.ship_to_country\n\t\t,h.ship_to_state\n\t\t,h.ship_to_zip\n\t\t,h.OrderStatus\n\t\t,h.Tax\n\t\t,h.Freight\n\t\t,h.cust_num\n\t\t,h.Application\n\t\t,h.curr_code\n\t\t,h.slsman\n\t\t,h.taken_by\n\t\t,h.CreateDate As OrderCreateDate\n\t\t,d.co_line\n\t\t,d.item\n\t\t,d.price_conv\n\t\t,d.qty_ordered_conv\n\t\t,d.disc\n\t\t,d.ItemStatus\n\t\t,d.DLDeleteIndicator\n\t\t,d.RecordDate\n\t\t,d.due_date\n\t\t,d.promise_date\n\t\t,d.CreateDate As OrderlineCreateDate\n\t\t,h.invoiced\n\tFrom OrderHeader h\n\tinner join OrderDetail d on \n\t\th.co_num = d.co_num and\n\t\th.site_ref = d.site_ref\n\t--where h.rn = 1 and d.rn = 1;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "load temp_Bookings",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "stage customer order",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "load shipments",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlMISource",
+						"sqlReaderQuery": "SELECT  \r\n\ts.SourceSystemID\r\n\t,co_num\r\n\t,o.order_date\r\n\t,o.site_ref\r\n\t,o.bill_to_country\r\n\t,o.bill_to_state\r\n\t,o.bill_to_zip\r\n\t,o.ship_to_country\r\n\t,o.ship_to_state\r\n\t,o.ship_to_zip\r\n\t,o.OrderStatus\r\n\t,o.Tax\r\n\t,o.Freight\r\n\t,o.cust_num\r\n\t,c.CustomerID\r\n\t,o.Application\r\n\t,o.curr_code\r\n\t,o.slsman\r\n\t,o.taken_by\r\n\t,o.co_line\r\n\t,o.item\r\n\t,i.ItemID\r\n\t,o.price_conv\r\n\t,o.disc\r\n\t,o.qty_ordered_conv\r\n\t,o.OrderLineStatus\r\n\t,o.DLDeleteIndicator\r\n\t,o.due_date\r\n\t,o.promise_date\r\n\t,o.OrderCreateDate\r\n\t,o.OrderlineCreateDate\r\n\t,o.RecordDate\r\n\t,o.invoiced\r\n\t,case o.OrderLineStatus\r\n\twhen 'C' then 1\r\n\twhen 'F' then 1\r\n\telse 0\r\n\tend as Complete\r\n\t,(o.qty_ordered_conv * o.price_conv) * (1 - (disc/100)) As Amount\r\n\t,'Base' as OrderType\r\n\t,isnull(v.ApplicationCode,0) as ApplicationCode\r\n\t,bc.iso_country_code as BillToCountryCode\r\n\t,sc.iso_country_code as ShipToCountryCode\r\n\t\r\nFROM stg.csi_customer_orders o\r\nleft join edw.Dim_SourceSystem s on o.site_ref = s.Site\r\nleft join edw.Dim_Customer c on o.cust_num = c.CustomerNumber and o.site_ref = c.Site\r\nleft join edw.Dim_Item i on o.item = i.Item and o.site_ref = i.Site\r\nleft join edw.Dim_Vertical v on o.Application = v.ApplicationName\r\nleft join stg.csi_Country bc on o.bill_to_country = bc.Country\r\nleft join stg.csi_Country sc on o.ship_to_country = sc.Country",
+						"isolationLevel": "ReadCommitted",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "SqlMISink",
+						"preCopyScript": "delete from temp_CO_Bookings ",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "co_num",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "OrderNumber",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "order_date",
+									"type": "DateTime",
+									"physicalType": "datetime"
+								},
+								"sink": {
+									"name": "OrderDate",
+									"type": "DateTime",
+									"physicalType": "date"
+								}
+							},
+							{
+								"source": {
+									"name": "site_ref",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "Site",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "bill_to_country",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "BillToCountry",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "bill_to_state",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "BillToState",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "bill_to_zip",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "BillToZipCode",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "ship_to_country",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "ShipToCountry",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "ship_to_state",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "ShipToState",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "ship_to_zip",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "ShipToZipCode",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "OrderStatus",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "OrderStatus",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "Tax",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								},
+								"sink": {
+									"name": "Tax",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								}
+							},
+							{
+								"source": {
+									"name": "Freight",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								},
+								"sink": {
+									"name": "Freight",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								}
+							},
+							{
+								"source": {
+									"name": "cust_num",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "CustomerNumber",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "Application",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "Application",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "curr_code",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "Currency",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "co_line",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "OrderLine",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "item",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "Item",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "price_conv",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 8,
+									"precision": 20
+								},
+								"sink": {
+									"name": "Price",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								}
+							},
+							{
+								"source": {
+									"name": "disc",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 8,
+									"precision": 11
+								},
+								"sink": {
+									"name": "Discount",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								}
+							},
+							{
+								"source": {
+									"name": "qty_ordered_conv",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 8,
+									"precision": 2
+								},
+								"sink": {
+									"name": "Quantity",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 8,
+									"precision": 2
+								}
+							},
+							{
+								"source": {
+									"name": "slsman",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "IntRepName",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "taken_by",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "ExtRepName",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "due_date",
+									"type": "DateTime",
+									"physicalType": "datetime"
+								},
+								"sink": {
+									"name": "PlannedDeliveryDate",
+									"type": "DateTime",
+									"physicalType": "date"
+								}
+							},
+							{
+								"source": {
+									"name": "RecordDate",
+									"type": "DateTime",
+									"physicalType": "datetime"
+								},
+								"sink": {
+									"name": "RecordDate",
+									"type": "DateTime",
+									"physicalType": "date"
+								}
+							},
+							{
+								"source": {
+									"name": "OrderLineStatus",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "OrderLineStatus",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "promise_date",
+									"type": "DateTime",
+									"physicalType": "datetime"
+								},
+								"sink": {
+									"name": "CustomerRequestDate",
+									"type": "DateTime",
+									"physicalType": "date"
+								}
+							},
+							{
+								"source": {
+									"name": "Amount",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 11
+								},
+								"sink": {
+									"name": "Amount",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								}
+							},
+							{
+								"source": {
+									"name": "Complete",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "Complete",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "ItemID",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "ItemID",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "CustomerID",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "CustomerID",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "ApplicationCode",
+									"type": "String",
+									"physicalType": "varchar"
+								},
+								"sink": {
+									"name": "ApplicationID",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "BillToCountryCode",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "BillToCountryCode",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "ShipToCountryCode",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "ShipToCountryCode",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "OrderType",
+									"type": "String",
+									"physicalType": "varchar"
+								},
+								"sink": {
+									"name": "OrderType",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "SourceSystemID",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "SourceSystemID",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "OrderlineCreateDate",
+									"type": "DateTime",
+									"physicalType": "datetime"
+								},
+								"sink": {
+									"name": "TransDate",
+									"type": "DateTime",
+									"physicalType": "date"
+								}
+							},
+							{
+								"source": {
+									"name": "DLDeleteIndicator",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "VoidLine",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "sql_table",
+						"type": "DatasetReference",
+						"parameters": {
+							"table_name": "csi_customer_orders",
+							"schema_name": "stg"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "sql_table",
+						"type": "DatasetReference",
+						"parameters": {
+							"table_name": "temp_CO_Bookings",
+							"schema_name": "dbo"
+						}
+					}
+				]
+			},
+			{
+				"name": "fact load",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "load temp_Bookings",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete t\r\nfrom edw.Fact_Bookings t\r\ninner join temp_CO_Bookings s on\r\n\tt.OrderNumber = s.OrderNumber and\r\n\tt.OrderLine = s.OrderLine;\r\n--where t.SourceSystemID = (select SourceSystemID from dim_SourceSystem where Site = ?)\r\n\r\ninsert into edw.Fact_Bookings\r\n\t(SourceSystemID\r\n\t,Site\r\n\t,BilltoCountryCode\r\n\t,BilltoCountry\r\n\t,BilltoState\r\n\t,BilltoZipCode\r\n\t,ShiptoCountryCode\r\n\t,ShiptoCountry\r\n\t,ShiptoState\r\n\t,ShiptoZipCode\r\n\t,OrderNumber\r\n\t,OrderLine\r\n\t,TransDate\r\n\t,OrderDate\r\n\t,Tax\r\n\t,Freight\r\n\t,CustomerID\r\n\t,ItemID\r\n\t,Price\r\n\t,Discount\r\n\t,Quantity\r\n\t,Amount\r\n\t,Currency\r\n\t,IntRepName\r\n\t,ExtRepName\r\n\t,PlannedDeliveryDate\r\n\t,CustomerRequestDate\r\n\t,DeliveryDate\r\n\t,ApplicationID\r\n\t,RecordDate\r\n\t,OrderLineStatus\r\n\t,OrderType\r\n\t,Complete)\r\nSelect\r\n\tSourceSystemID\r\n\t,Site\r\n\t,BillToCountryCode\r\n\t,BillToCountry\r\n\t,BillToState\r\n\t,BillToZipCode\r\n\t,ShiptoCountryCode\r\n\t,ShipToCountry\r\n\t,ShipToState\r\n\t,ShipToZipCode\r\n\t,OrderNumber\r\n\t,OrderLine\r\n\t,TransDate\r\n\t,OrderDate\r\n\t,isnull(Tax,0)\r\n\t,isnull(Freight,0)\r\n\t,CustomerID\r\n\t,ItemID\r\n\t,Price\r\n\t,Discount\r\n\t,Quantity\r\n\t,Amount\r\n\t,Currency\r\n\t,IntRepName\r\n\t,ExtRepName\r\n\t,PlannedDeliveryDate\r\n\t,CustomerRequestDate\r\n\t,DeliveryDate\r\n\t,ApplicationID\r\n\t,RecordDate\r\n\t,OrderLineStatus\r\n\t,OrderType\r\n\t,isnull(Complete,0) from temp_CO_Bookings;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "load shipments",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "stg_customer_order_shipments",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"folder": {
+			"name": "Fact Loads"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-03-07T09:50:35Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

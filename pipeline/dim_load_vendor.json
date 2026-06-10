@@ -1,0 +1,105 @@
+{
+	"name": "dim_load_vendor",
+	"properties": {
+		"activities": [
+			{
+				"name": "stage vendor",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "TRUNCATE TABLE stg.csi_Vendor;\n\nWITH ADDR AS (\n    SELECT \n        ROW_NUMBER() OVER (PARTITION BY site_ref, vend_num ORDER BY VariationNumber DESC) AS rn,\n        vend_num,\n        Name,\n        CAST(RecordDate AS DATE) AS RecordDate,\n        site_ref,\n        country\n    FROM raw.csi_vendaddr_mst\n),\nVEND AS (\n    SELECT \n        ROW_NUMBER() OVER (PARTITION BY site_ref, vend_num ORDER BY RecordDate DESC) AS rn,\n        vend_num,\n        vend_type,\n        stat,\n        site_ref\n    FROM raw.csi_vendor_mst\n)\n\nINSERT INTO stg.csi_Vendor (\n    vend_num,\n    vend_name,\n    country,\n    vend_type,\n    stat,\n    site_ref\n)\nSELECT \n    ADDR.vend_num,\n    ADDR.Name,\n    ADDR.country,\n    VEND.vend_type,\n    VEND.stat,\n    ADDR.site_ref\nFROM ADDR\nINNER JOIN VEND \n    ON ADDR.site_ref = VEND.site_ref \n    AND ADDR.vend_num = VEND.vend_num\nWHERE ADDR.rn = 1 AND VEND.rn = 1;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "load temp_DimCustomer",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "stage vendor",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete from temp_DimCustomer;\n\ninsert into temp_DimCustomer\n(\n\tCustomerNumber\n\t,CustomerName\n\t,Country\n\t,CountryCode\n\t,CustomerType\n\t,CustomerStatus\n\t,SFCustomerType\n\t,Site\n\t,cus_h_key\n)\nSELECT \n\tcust_num\n\t,name\n\t,country\n\t,'CA'\n\t,cust_type\n\t,stat\n\t,uf_sf_customer_type\n\t,site_ref\n\t,HASHBYTES('SHA1', concat(cust_num,cust_type,site_ref)) cus_h_key\nFROM stg.csi_Customer;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "load Dim_Customer",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "load temp_DimCustomer",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "merge edw.Dim_Customer as tgt\n\tusing (select CustomerNumber, CustomerName, Country, CountryCode, CustomerType, CustomerStatus, SFCustomerType, Site from temp_DimCustomer) as src\n\ton (tgt.CustomerNumber = src.CustomerNumber and\n\t\ttgt.Site = src.Site)\nwhen matched then\n\tupdate\n\t\tset CustomerName = tgt.CustomerName\nwhen not matched then\n\tinsert (CustomerNumber, CustomerName, Country, CountryCode, CustomerType, CustomerStatus, SFCustomerType, Site)\n\tvalues (src.CustomerNumber, src.CustomerName, src.Country, src.CountryCode, src.CustomerType, src.CustomerStatus, src.SFCustomerType, src.Site);"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"folder": {
+			"name": "Dimention Loads"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-10-14T09:07:55Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

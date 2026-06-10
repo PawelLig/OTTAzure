@@ -1,0 +1,39 @@
+{
+	"name": "stg_customer_order_shipments",
+	"properties": {
+		"activities": [
+			{
+				"name": "stage co shipments",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete from stg.csi_customer_order_shipment;\r\n\r\nWith ship AS\r\n(\r\nSELECT\r\n\ttrim(sh.co_num) co_num\r\n\t,sh.co_line\r\n\t,sh.site_ref\r\n\t,CONVERT(date, \r\n               SWITCHOFFSET(CONVERT(datetimeoffset, \r\n                                    sh.ship_date), \r\n                            DATENAME(TzOffset, SYSDATETIMEOFFSET()))) \r\n       AS ship_date\r\n\t,sh.cost\r\n\t,sh.fovhd_cost\r\n\t,sh.lbr_cost\r\n\t,sh.matl_cost\r\n\t,sh.inv_num\r\n\t,sh.price\r\n\t,sh.qty_invoiced\r\n\t,sh.qty_returned\r\n\t,sh.qty_shipped\r\n\t,sh.shipment_id\r\n\t,sh.shipment_seq\r\n\t,CONVERT(date, \r\n               SWITCHOFFSET(CONVERT(datetimeoffset, \r\n                                    sh.RecordDate), \r\n                            DATENAME(TzOffset, SYSDATETIMEOFFSET()))) \r\n       AS RecordDate\r\n\t,sh.DLDeleteIndicator\r\nFROM raw.csi_co_ship_mst as sh\r\n)\r\ninsert into stg.csi_customer_order_shipment\r\nSelect * From ship ;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"folder": {
+			"name": "Stage Loads"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-13T13:37:54Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,105 @@
+{
+	"name": "dim_load_item",
+	"properties": {
+		"activities": [
+			{
+				"name": "stage item",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete from stg.csi_Item ;\n\nWith itmst as\n(\n\tSELECT  \n\t\tVariationNumber\n\t\t,row_number() over (partition by site_ref,item order by VariationNumber desc) rn\n\t\t,4 as 'SourceSystemID'\n\t\t,site_ref\n\t\t,item\n\t\t,description\n\t\t,abc_code\n\t\t,supply_site\n\t\t,supply_whse\n\t\t,prod_type\n\t\t,p_m_t_code\n\t\t,product_code\n\t\t,stat -- Active / Obsolete / Slowmoving\n\t\t,Uf_hierachy_level1\n\t\t,Uf_hierachy_level2\n\t\t,Uf_hierachy_level3\n\t\t,Uf_hierachy_level4\n\t\t,Uf_item_header\n\t\t,CAST(RecordDate as datetime) RecordDate\n\t\t,DLDeleteIndicator\n\tFROM raw.csi_item_mst\n)\nINSERT INTO stg.csi_Item\n           (SourceSystemID\n           ,site_ref\n           ,item\n           ,description\n           ,abc_code\n           ,supply_site\n           ,supply_whse\n           ,prod_type\n           ,p_m_t_code\n           ,product_code\n           ,stat\n           ,RecordDate\n           ,DLDeleteIndicator\n           ,Uf_hierachy_level1\n           ,Uf_hierachy_level2\n           ,Uf_hierachy_level3\n           ,Uf_hierachy_level4\n           ,Uf_item_header)\n\nselect \n\titmst.SourceSystemID\n\t,itmst.site_ref\n\t,itmst.item\n\t,itmst.description\n\t,itmst.abc_code\n\t,itmst.supply_site\n\t,itmst.supply_whse\n\t,itmst.prod_type\n\t,itmst.p_m_t_code\n\t,itmst.product_code\n\t,itmst.stat\n\t,itmst.RecordDate\n\t,itmst.DLDeleteIndicator\n\t,itmst.Uf_hierachy_level1\n\t,itmst.Uf_hierachy_level2\n\t,itmst.Uf_hierachy_level3\n\t,itmst.Uf_hierachy_level4\n\t,itmst.Uf_item_header\nfrom itmst\nwhere itmst.rn = 1;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "load temp_DimItem",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "stage item",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete from dbo.temp_DimItem ;\n\ninsert into temp_DimItem\n(Site, Item, Description, ABC_Code, ProductType, PMT_Code, ProductCode, Stat, ItemHeader, ProductCategory, ProductSubCategory, ProductFamily, ProductName, RecordDate )\nSELECT \n\tsite_ref\n\t,trim(item) item\n\t,description\n\t,abc_code\n\t,prod_type\n\t,p_m_t_code\n\t,product_code\n\t,stat\n\t,Uf_item_header\n\t,Uf_hierachy_level1\n\t,Uf_hierachy_level2\n\t,Uf_hierachy_level3\n\t,Uf_hierachy_level4\n\t,cast(RecordDate as date) RecordDate\nFROM stg.csi_Item;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "load Dim_Item",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "load temp_DimItem",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "merge edw.Dim_Item as tgt\n\tusing \n\t\t(SELECT  Site\n\t\t\t  ,Item\n\t\t\t  ,Description\n\t\t\t  ,ABC_Code\n\t\t\t  ,ProductType\n\t\t\t  ,PMT_Code\n\t\t\t  ,ProductCode\n\t\t\t  ,Stat\n\t\t\t  ,ItemHeader\n\t\t\t  ,ProductCategory\n\t\t\t  ,ProductSubCategory\n\t\t\t  ,ProductFamily\n\t\t\t  ,ProductName\n\t\t\t  ,RecordDate\n\t\t  FROM temp_DimItem\n\t\t) as src\n\ton (tgt.Item = src.Item and tgt.Site = src.Site)\nwhen matched then\n\tupdate\n\t\tset tgt.Description = src.Description,\n\t\ttgt.ABC_Code = src.ABC_Code,\n\t\ttgt.ProductType = src.ProductType,\n\t\ttgt.PMT_Code = src.PMT_Code,\n\t\ttgt.ProductCode = src.ProductCode,\n\t\ttgt.Stat = src.Stat,\n\t\ttgt.ItemHeader = src.ItemHeader,\n\t\ttgt.ProductCategory = src.ProductCategory,\n\t\ttgt.ProductSubCategory = src.ProductSubCategory,\n\t\ttgt.ProductFamily = src.ProductFamily,\n\t\ttgt.ProductName = src.ProductName,\n\t\ttgt.RecordDate = src.RecordDate\nwhen not matched then\n\tinsert (Site, Item, Description, ABC_Code, ProductType, PMT_Code, ProductCode, Stat, ItemHeader, ProductCategory, ProductSubCategory, ProductFamily, ProductName, RecordDate )\n\tvalues (src.Site, src.Item, src.Description, src.ABC_Code, src.ProductType, src.PMT_Code, src.ProductCode, src.Stat, src.ItemHeader, src.ProductCategory, src.ProductSubCategory, src.ProductFamily, src.ProductName, src.RecordDate);\n"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"folder": {
+			"name": "Dimention Loads"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-03-07T07:59:29Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,39 @@
+{
+	"name": "fact_load_purchase_order",
+	"properties": {
+		"activities": [
+			{
+				"name": "temp purchase orders",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete from temp_PurchaseOrders;\r\n\r\ninsert into temp_PurchaseOrders\r\n(\r\n\tSite\r\n    ,PONumber\r\n    ,POLine\r\n    ,PORelease\r\n    ,PODate\r\n    ,VendorNumber\r\n    --,VendorID\r\n    ,InvoiceNumber\r\n    ,InvoiceDate\r\n    ,CurrencyCode\r\n    ,ExchRate\r\n    ,POStatus\r\n    ,POType\r\n    ,BlanketQty\r\n    ,Item\r\n    --,ItemID\r\n    ,ItemCost\r\n    ,OrderedQty\r\n    ,ReceivedQty\r\n    ,RejectedQty\r\n    ,ReturnedQty\r\n    ,ReleaseDate\r\n    ,PromiseDate\r\n    ,ReceivedDate\r\n    ,DueDate\r\n    ,RecordDate\r\n    ,CreateDate\r\n    ,UM\r\n    ,WHSE\r\n    ,LineStatus\r\n)\r\nselect \r\n\th.site_ref, h.po_num, r.po_line, r.po_release, h.order_date, h.vend_num, h.inv_num, h.inv_date, h.curr_code, h.exch_rate, h.stat, h.type, r.qty_ordered as blanket_qty,\r\n\t r.item, r.item_cost, r.qty_ordered, r.qty_received, r.qty_rejected, r.qty_returned,\r\n\th.order_date release_date,r.promise_date, r.rcvd_date, r.due_date, r.RecordDate, r.CreateDate,\r\n\tr.u_m, r.whse, r.stat --, r.DLDeleteIndicator\r\nfrom stg.csi_po_header h \r\n  inner join stg.csi_po_release r on \r\n\th.site_ref = r.site_ref and\r\n\th.po_num = r.po_num\r\nwhere h.type = 'R';"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"folder": {
+			"name": "Fact Loads"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-03-07T07:59:29Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

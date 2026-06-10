@@ -1,0 +1,39 @@
+{
+	"name": "stg_service_order_status",
+	"properties": {
+		"activities": [
+			{
+				"name": "stage sro shipments",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete from stg.csi_service_order_status;\r\n\r\nwith sro_stat as\r\n(SELECT \r\n\tsite_ref\r\n\t,trim(sro_num) sro_num\r\n\t,seq\r\n\t,stat_code\r\n\t,dateadd(HOUR,2, CAST(stat_date as datetime)) stat_date\r\n\t,dateadd(HOUR,2, CAST(CreateDate as datetime)) CreateDate\r\n\t,dateadd(HOUR,2, CAST(RecordDate as datetime)) RecordDate\r\nFROM raw.csi_fs_sro_stat_mst)\r\ninsert into stg.csi_service_order_status\r\nselect \r\n\tsite_ref\r\n\t,sro_num\r\n\t,seq\r\n\t,stat_code\r\n\t,cast(stat_date as date) stat_date\r\n\t,cast(CreateDate as date) CreateDate\r\n\t,cast(RecordDate as date) RecordDate\r\nfrom sro_stat ;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"folder": {
+			"name": "Stage Loads"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-13T13:37:54Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

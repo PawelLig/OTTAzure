@@ -1,0 +1,39 @@
+{
+	"name": "test_SQL_pipeline",
+	"properties": {
+		"activities": [
+			{
+				"name": "test SQL script",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_global",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "select top 10 * from edw.Fact_Sales"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"folder": {
+			"name": "Testing/dyvenia"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-04-23T11:07:04Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,101 @@
+{
+	"name": "ingest_csi_table_lake",
+	"properties": {
+		"activities": [
+			{
+				"name": "request access token",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "req_access_token",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "set access token",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "request access token",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "parent_access_token",
+					"value": {
+						"value": "@activity('request access token').output.pipelineReturnValue.ret_access_token",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "copy table",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "set access token",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "cp_csi_to_parquet",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"prm_table_name": {
+							"value": "@pipeline().parameters.parent_table_name",
+							"type": "Expression"
+						},
+						"prm_access_token": {
+							"value": "@variables('parent_access_token')",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"parameters": {
+			"parent_table_name": {
+				"type": "string",
+				"defaultValue": "csi_co_mst"
+			}
+		},
+		"variables": {
+			"parent_access_token": {
+				"type": "String"
+			},
+			"parent_table_name": {
+				"type": "String",
+				"defaultValue": "csi_fs_sro_lines_mst"
+			}
+		},
+		"folder": {
+			"name": "Ingest CSI Tables"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-13T13:37:55Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

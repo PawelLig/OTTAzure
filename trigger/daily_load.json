@@ -1,0 +1,25 @@
+{
+	"name": "daily_load",
+	"properties": {
+		"description": "Daily load",
+		"annotations": [],
+		"runtimeState": "Stopped",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "load_items_pipeline",
+					"type": "PipelineReference"
+				}
+			}
+		],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Day",
+				"interval": 1,
+				"startTime": "2025-03-07T16:00:00",
+				"timeZone": "W. Europe Standard Time"
+			}
+		}
+	}
+}

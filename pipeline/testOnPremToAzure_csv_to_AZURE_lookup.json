@@ -1,0 +1,185 @@
+{
+	"name": "testOnPremToAzure_csv_to_AZURE_lookup",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy data1",
+				"type": "Copy",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "SqlMISink",
+						"preCopyScript": "truncate table csi_coitem_mst",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "csv_destination_dataset",
+						"type": "DatasetReference",
+						"parameters": {
+							"table_name": "csi_coitem_mst"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "sql_destination_table_staging",
+						"type": "DatasetReference",
+						"parameters": {
+							"table_name": "csi_coitem_mst"
+						}
+					}
+				]
+			},
+			{
+				"name": "Lookup1",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlMISource",
+						"sqlReaderQuery": "select * from ETL_CONFIG_TABLES_TO_AZURE",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "sql_destination_table_staging",
+						"type": "DatasetReference",
+						"parameters": {
+							"table_name": "ETL_CONFIG_TABLES_TO_AZURE"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Lookup1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Lookup1').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Copy data2",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobFSReadSettings",
+										"recursive": true,
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"sink": {
+									"type": "SqlMISink",
+									"preCopyScript": {
+										"value": "@concat('truncate table ', item().csi_table_name)",
+										"type": "Expression"
+									},
+									"writeBehavior": "insert",
+									"sqlWriterUseTableLock": false
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "csv_destination_dataset",
+									"type": "DatasetReference",
+									"parameters": {
+										"table_name": "@item().csi_table_name"
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "sql_destination_table_staging",
+									"type": "DatasetReference",
+									"parameters": {
+										"table_name": "@item().csi_table_name"
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"folder": {
+			"name": "Testing/OnPremToAzure"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-05-04T12:41:04Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,52 @@
+{
+	"name": "load_vendors_pipeline",
+	"properties": {
+		"activities": [
+			{
+				"name": "ingest csi",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "ingest_vendor_tables",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "dimention load",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "ingest csi",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "dim_load_customer",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"folder": {
+			"name": "Daily Load Pipelines"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-10-14T09:07:05Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

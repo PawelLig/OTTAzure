@@ -1,0 +1,148 @@
+{
+	"name": "ingest_customer_tables",
+	"properties": {
+		"activities": [
+			{
+				"name": "request token",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "req_access_token",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "set access token",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "request token",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "parent_access_token",
+					"value": {
+						"value": "@activity('request token').output.pipelineReturnValue.ret_access_token",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "get table list",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "set access token",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlMISource",
+						"sqlReaderQuery": "select csi_table_name from dbo.etl_config where business_process = 'customer'",
+						"queryTimeout": "00:01:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "sql_destination_table",
+						"type": "DatasetReference",
+						"parameters": {
+							"table_name": "etl_config"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEachTable",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "get table list",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('get table list').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "copy csi table to azure",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "cp_csi_to_azure",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"prm_table_name": {
+										"value": "@item().csi_table_name",
+										"type": "Expression"
+									},
+									"prm_access_token": {
+										"value": "@variables('parent_access_token')",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"variables": {
+			"parent_access_token": {
+				"type": "String"
+			},
+			"table_list": {
+				"type": "Array"
+			},
+			"table_name": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Ingest CSI Tables"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-13T13:37:55Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

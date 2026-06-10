@@ -1,0 +1,636 @@
+{
+	"name": "fact_load_service_order",
+	"properties": {
+		"activities": [
+			{
+				"name": "stage service order",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "truncate table stg.csi_service_orders;\n\nWith so as\n(SELECT \n\ttrim(sro_num) sro_num\n\t,site_ref\n\t,accum_wip\n\t,sro_stat\n\t,bill_stat\n\t,cust_po\n\t,end_user_type\n\t,cust_num\n\t,product_code\n\t,stat_code\n\t,Uf_SF_Application\n\t,dateadd(HOUR,2, CAST(open_date as datetime)) as open_date\n\t,dateadd(HOUR,2, CAST(start_date as datetime)) as start_date\n\t,dateadd(HOUR,2, CAST(close_date as datetime)) as close_date\n\t,dateadd(HOUR,2, CAST(end_date as datetime)) as due_date\n\t,dateadd(HOUR,2, CAST(datefld as datetime)) as crd\n\t,total_cost_matl\n\t,total_cost_lbr\n\t,total_cost_misc\n\t--,(TotalCostMatl + TotalCostLbr + TotalCostMisc)\n\t,total_price\n\t,total_billed\n\t--,( TotalBilled + FreightT + MiscChargesT - DiscT + TotalSalesTax1 + TotalSalesTax2 )\n\t,freight_t\n\t,total_sales_tax1\n\t,total_sales_tax2\n\t,exch_rate\n\t,slsman\n\t,partner_id\n\t,DLDeleteIndicator\n\t,dateadd(HOUR,2, CAST(RecordDate as datetime)) as RecordDate\n\t,dateadd(HOUR,2, CAST(CreateDate as datetime)) as SROCreateDate\nFROM raw.[csi_fs_sro_mst])\n,so_trans as\n(\n\tSelect * From \n\t((Select \n\t\ttrim(sro_num) sro_num\n\t\t,sro_line\n\t\t,sro_oper\n\t\t,trans_num\n\t\t,trans_type\n\t\t,site_ref\n\t\t,trim(inv_num) as inv_num\n\t\t,inv_line\n\t\t,type\n\t\t,bill_stat\n\t\t,dept\n\t\t,item\n\t\t,disc\n\t\t--,extprice\n\t\t,price\n\t\t--,price_conv\n\t\t,matl_qty\n\t\t,description\n\t\t,dateadd(HOUR,2, CAST(RecordDate as datetime)) as TransRecordDate\n\t\t,dateadd(HOUR,2, CAST(CreateDate as datetime)) as TransCreateDate\n\t\t,DLDeleteIndicator\n\t\t,posted\n\tFrom raw.csi_fs_sro_matl_mst --where DLDeleteIndicator = 0 and type = 'A' and trans_type = 'I'\n\t)\n\tUNION\n\t(Select \n\t\ttrim(sro_num) sro_num\n\t\t,sro_line\n\t\t,sro_oper\n\t\t,trans_num\n\t\t,'I' as trans_type\n\t\t,site_ref\n\t\t,trim(inv_num) as inv_num\n\t\t,inv_line\n\t\t,type\n\t\t,bill_stat\n\t\t,dept\n\t\t,'Labor' as item\n\t\t,disc\n\t\t,rate as price\n\t\t,hrs_to_bill as matl_qty\n\t\t,'Labor' as description\n\t\t,dateadd(HOUR,2, CAST(RecordDate as datetime)) as TransRecordDate\n\t\t,dateadd(HOUR,2, CAST(CreateDate as datetime)) as TransCreateDate\n\t\t,DLDeleteIndicator\n\t\t,posted\n\tFrom raw.csi_fs_sro_labor_mst\n\t--where DLDeleteIndicator = 0 and type = 'A' \n\t)) A\n\t\n)\ninsert into stg.csi_service_orders\n\t(sro_num\n      ,open_date\n      ,site_ref\n      ,bill_to_country\n      ,product_code\n      ,cust_num\n      ,sro_line\n      ,sro_oper\n      ,trans_num\n      ,line\n      ,item\n      ,extprice\n      ,total_sales_tax1\n\t  ,total_sales_tax2\n      ,freight_t\n      ,matl_qty\n      ,Uf_SF_Application\n      ,disc\n      ,DLDeleteIndicator\n      ,TransRecordDate\n      ,due_date\n      ,crd\n      ,curr_code\n      ,slsman\n      ,SROCreateDate\n      ,TransCreateDate\n      ,stat_code\n      ,start_date\n      ,close_date\n      ,bill_stat\n      ,sro_stat\n      ,partner_id\n      ,type\n      ,trans_type\n      ,posted\n      ,inv_num\n      ,inv_line)\nSelect \n\ts.sro_num\n\t,cast(s.open_date as date) as open_date\n\t,s.site_ref\n\t,'-' bill_to_country\n\t,s.product_code\n\t,s.cust_num\n\t,t.sro_line\n\t,t.sro_oper\n\t,t.trans_num\n\t,CONCAT(t.sro_line,t.sro_oper,t.trans_num) line\n\t,t.item\n\t,t.price\n\t,s.total_sales_tax1\n\t,s.total_sales_tax2\n\t,s.freight_t\n\t,t.matl_qty\n\t,s.Uf_SF_Application\n\t,t.disc\n\t,t.DLDeleteIndicator\n\t,cast(t.TransRecordDate as date) as TransRecordDate\n\t,cast(s.due_date as date) as due_date\n\t,cast(s.crd as date) as crd\n\t,'EUR' curr_code\n\t,s.slsman\n\t,cast(s.SROCreateDate as date) as SROCreateDate\n\t,cast(t.TransCreateDate as date) as TransCreateDate\n\t,s.stat_code\n\t,cast(s.start_date as date) as start_date\n\t,cast(s.close_date as date) as close_date\n\t,t.bill_stat\n\t,s.sro_stat\n\t,s.partner_id\n\t,t.type\n\t,t.trans_type\n\t,posted\n\t,t.inv_num\n\t,inv_line\n\n\t\nfrom so s\ninner join so_trans t on \n\ts.site_ref = t.site_ref and\n\ts.sro_num = t.sro_num\n--where s.rn = 1 and t.rn = 1"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "load temp_Bookings",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "misc charges",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "load working status",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlMISource",
+						"sqlReaderQuery": "SELECT  \r\n\tss.SourceSystemID\r\n\t,getdate() ProcessDate\r\n\t,sro.sro_num\r\n\t,sro.line\r\n\t,sro.sro_line\r\n\t,case sro.stat_code \r\n\t\twhen '11 Shipped' Then 1\r\n\t\tElse 0\r\n\t end as CloseOrder\r\n\t,sro.cust_num\r\n\t,customer.CustomerID\r\n\t,country.iso_country_code bill_to_country\r\n\t,country.iso_country_code CountryCode\r\n\t,sro.item\r\n\t,item.ItemID\r\n\t,sro.matl_qty\r\n\t,sro.extprice\r\n\t,sro.curr_code\r\n\t,sro.disc\r\n\t,(sro.matl_qty * sro.extprice) * (1 - (sro.disc/100)) As Amount\r\n\t,cast(sro.open_date as date) open_date\r\n\t,sro.site_ref\r\n\t,sro.stat_code\r\n\t,app.ApplicationCode\r\n\t--,sro.ItemStatus\r\n\t,sro.DLDeleteIndicator\r\n\t,sro.type\r\n\t,sro.trans_type\r\n\t,sro.posted\r\n\t,cast(sro.TransRecordDate as date) as TransRecordDate\r\n\t,cast(sro.TransCreateDate as date) as TransCreateDate\r\n\t,cast(sro.due_date as date) due_date\r\n\t,cast(sro.crd as date) as crd\r\n\t,sro.slsman\r\n\t,sro.partner_id\r\n\t,'Service' OrderType\r\n\t,sro.inv_num\r\n\t,sro.inv_line\r\n\t,sro.freight_t\r\n\t,(sro.total_sales_tax1 + sro.total_sales_tax2) as sales_tax_t\r\nFROM stg.[csi_service_orders] sro\r\nleft join edw.Dim_Item item on sro.item = item.item and sro.site_ref = item.Site\r\nleft join edw.Dim_Customer customer on sro.cust_num = customer.CustomerNumber and sro.site_ref = customer.Site\r\nleft join stg.csi_Country country on trim(customer.country) = trim(country.country)\r\nleft join edw.Dim_Vertical app on TRIM(sro.Uf_SF_Application) = trim(app.ApplicationName)\r\nleft join edw.Dim_SourceSystem ss on sro.site_ref = ss.Site\r\n--Where  sro.sro_num = 'SRO0000126'\r\n--sro.site_ref = ?",
+						"isolationLevel": "ReadCommitted",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "SqlMISink",
+						"preCopyScript": "delete from temp_SRO_Bookings ",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "SourceSystemID",
+									"type": "Int16",
+									"physicalType": "smallint"
+								},
+								"sink": {
+									"name": "SourceSystemID",
+									"type": "Int16",
+									"physicalType": "smallint"
+								}
+							},
+							{
+								"source": {
+									"name": "site_ref",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "Site",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "sro_num",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "OrderNumber",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "line",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "OrderLine",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "sro_line",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "sro_line",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "OrderType",
+									"type": "String",
+									"physicalType": "varchar"
+								},
+								"sink": {
+									"name": "OrderType",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "TransCreateDate",
+									"type": "DateTime",
+									"physicalType": "date"
+								},
+								"sink": {
+									"name": "TransDate",
+									"type": "DateTime",
+									"physicalType": "date"
+								}
+							},
+							{
+								"source": {
+									"name": "open_date",
+									"type": "DateTime",
+									"physicalType": "date"
+								},
+								"sink": {
+									"name": "OrderDate",
+									"type": "DateTime",
+									"physicalType": "date"
+								}
+							},
+							{
+								"source": {
+									"name": "CountryCode",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "BillToCountryCode",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "CustomerID",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "CustomerID",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "cust_num",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "CustomerNumber",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "sales_tax_t",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								},
+								"sink": {
+									"name": "Tax",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								}
+							},
+							{
+								"source": {
+									"name": "freight_t",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								},
+								"sink": {
+									"name": "Freight",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								}
+							},
+							{
+								"source": {
+									"name": "ItemID",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "ItemID",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "item",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "Item",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "extprice",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 8,
+									"precision": 20
+								},
+								"sink": {
+									"name": "Price",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								}
+							},
+							{
+								"source": {
+									"name": "disc",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 8,
+									"precision": 11
+								},
+								"sink": {
+									"name": "Discount",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								}
+							},
+							{
+								"source": {
+									"name": "matl_qty",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 8,
+									"precision": 20
+								},
+								"sink": {
+									"name": "Quantity",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								}
+							},
+							{
+								"source": {
+									"name": "Amount",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 8,
+									"precision": 38
+								},
+								"sink": {
+									"name": "Amount",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 18
+								}
+							},
+							{
+								"source": {
+									"name": "curr_code",
+									"type": "String",
+									"physicalType": "varchar"
+								},
+								"sink": {
+									"name": "Currency",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "slsman",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "IntRepName",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "partner_id",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "ExtRepName",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "due_date",
+									"type": "DateTime",
+									"physicalType": "date"
+								},
+								"sink": {
+									"name": "PlannedDeliveryDate",
+									"type": "DateTime",
+									"physicalType": "date"
+								}
+							},
+							{
+								"source": {
+									"name": "crd",
+									"type": "DateTime",
+									"physicalType": "date"
+								},
+								"sink": {
+									"name": "CustomerRequestDate",
+									"type": "DateTime",
+									"physicalType": "date"
+								}
+							},
+							{
+								"source": {
+									"name": "ApplicationCode",
+									"type": "Int16",
+									"physicalType": "smallint"
+								},
+								"sink": {
+									"name": "ApplicationCode",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "TransRecordDate",
+									"type": "DateTime",
+									"physicalType": "date"
+								},
+								"sink": {
+									"name": "RecordDate",
+									"type": "DateTime",
+									"physicalType": "date"
+								}
+							},
+							{
+								"source": {
+									"name": "ProcessDate",
+									"type": "DateTime",
+									"physicalType": "datetime"
+								},
+								"sink": {
+									"name": "ProcessDate",
+									"type": "DateTime",
+									"physicalType": "datetime"
+								}
+							},
+							{
+								"source": {
+									"name": "CloseOrder",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "Complete",
+									"type": "Int16",
+									"physicalType": "smallint"
+								}
+							},
+							{
+								"source": {
+									"name": "DLDeleteIndicator",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "VoidLine",
+									"type": "Int16",
+									"physicalType": "smallint"
+								}
+							},
+							{
+								"source": {
+									"name": "type",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "type",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "trans_type",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "trans_type",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "stat_code",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "sro_stat",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "posted",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "posted",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "inv_num",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "InvoiceNumber",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "inv_line",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "InvoiceLine",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "sql_table",
+						"type": "DatasetReference",
+						"parameters": {
+							"table_name": "csi_service_orders",
+							"schema_name": "stg"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "sql_table",
+						"type": "DatasetReference",
+						"parameters": {
+							"table_name": "temp_SRO_Bookings",
+							"schema_name": "dbo"
+						}
+					}
+				]
+			},
+			{
+				"name": "fact load",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "load temp_Bookings",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete t\r\nfrom edw.Fact_Bookings t\r\ninner join temp_SRO_Bookings s on\r\n\tt.OrderNumber = s.OrderNumber and\r\n\tt.OrderLine = s.OrderLine and\r\n\tt.Site = s.Site;\r\n\r\nInsert into edw.Fact_Bookings\r\n(\r\n\tSourceSystemID\r\n\t,Site\r\n\t,BillToCountryCode\r\n\t,OrderNumber\r\n\t,OrderLine\r\n\t,TransDate\r\n\t,OrderDate\r\n\t,Freight\r\n\t,Tax\r\n\t,CustomerID\r\n\t,ItemID\r\n\t,Price\r\n\t,Discount\r\n\t,Quantity\r\n\t,Amount\r\n\t,Currency\r\n\t,IntRepName\r\n\t,ExtRepName\r\n\t,PlannedDeliveryDate\r\n\t,CustomerRequestDate\r\n\t,ApplicationID\r\n\t,RecordDate\r\n\t,OrderLineStatus\r\n\t,OrderType\r\n\t,Complete\r\n)\r\nselect\r\nSourceSystemID\r\n,Site\r\n,BillToCountryCode\r\n,OrderNumber\r\n,OrderLine\r\n,TransDate\r\n,OrderDate\r\n,Freight\r\n,Tax\r\n,CustomerID\r\n,ItemID\r\n,Price\r\n,Discount\r\n,Quantity\r\n,case trans_type\r\n\twhen 'R' then Amount * -1\r\n\telse Amount\r\nend Amount\r\n,Currency\r\n,IntRepName\r\n,ExtRepName\r\n,PlannedDeliveryDate\r\n,CustomerRequestDate\r\n,ApplicationCode\r\n,RecordDate\r\n,sro_stat\r\n,OrderType\r\n,Complete\r\nFrom temp_SRO_Bookings\r\nwhere OrderType = 'Service' and VoidLine = 0 and type = 'P'  and sro_line < 899 --and posted = 0\r\nand\r\nsro_stat in \r\n\t(\r\n\t\t'06 Cust Ap'\r\n\t\t,'07 Schedul'\r\n\t\t,'08 InProgr'\r\n\t\t,'09 JobComp'\r\n\t\t,'10 Packed'\r\n\t\t,'11 Shipped'\r\n\t);"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "misc charges",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "stage service order",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": "with misc as\r\n(select\r\n\tsite_ref\r\n\t,sro_num\r\n\t,sro_line\r\n\t,sro_oper\r\n\t,trans_num\r\n\t,trim(inv_num) as inv_num\r\n\t,inv_line\r\n\t,type\r\n\t,posted\r\n\t,bill_stat\r\n\t,disc\r\n\t,est_sales_tax1\r\n\t,est_sales_tax2\r\n\t,extprice\r\n\t,price\r\n\t,qty\r\n\t,misc_code as item\r\n\t,description\t\r\n\t,dateadd(HOUR,2, CAST(RecordDate as datetime)) as RecordDate\r\n\t,dateadd(HOUR,2, CAST(trans_date as datetime)) as trans_date\r\n\t,DLDeleteIndicator\r\n\t\r\nfrom [raw].[csi_fs_sro_misc_mst]\r\n)\r\n, sro as\r\n(SELECT \r\n\ttrim(sro_num) sro_num\r\n\t,site_ref\r\n\t,accum_wip\r\n\t,sro_stat\r\n\t,bill_stat\r\n\t,cust_po\r\n\t,end_user_type\r\n\t,cust_num\r\n\t,product_code\r\n\t,stat_code\r\n\t,Uf_SF_Application\r\n\t,dateadd(HOUR,2, CAST(open_date as datetime)) as open_date\r\n\t,dateadd(HOUR,2, CAST(start_date as datetime)) as start_date\r\n\t,dateadd(HOUR,2, CAST(close_date as datetime)) as close_date\r\n\t,dateadd(HOUR,2, CAST(end_date as datetime)) as due_date\r\n\t,dateadd(HOUR,2, CAST(datefld as datetime)) as crd\r\n\t,total_cost_matl\r\n\t,total_cost_lbr\r\n\t,total_cost_misc\r\n\t--,(TotalCostMatl + TotalCostLbr + TotalCostMisc)\r\n\t,total_price\r\n\t,total_billed\r\n\t--,( TotalBilled + FreightT + MiscChargesT - DiscT + TotalSalesTax1 + TotalSalesTax2 )\r\n\t,freight_t\r\n\t,total_sales_tax1\r\n\t,total_sales_tax2\r\n\t,exch_rate\r\n\t,slsman\r\n\t,partner_id\r\n\t,DLDeleteIndicator\r\n\t,dateadd(HOUR,2, CAST(RecordDate as datetime)) as RecordDate\r\n\t,dateadd(HOUR,2, CAST(CreateDate as datetime)) as SROCreateDate\r\nFROM raw.[csi_fs_sro_mst])\r\ninsert into stg.csi_service_orders\r\n\t(sro_num\r\n      ,open_date\r\n      ,site_ref\r\n      ,bill_to_country\r\n      ,product_code\r\n      ,cust_num\r\n      ,sro_line\r\n      ,sro_oper\r\n      ,trans_num\r\n      ,line\r\n      ,item\r\n      ,extprice\r\n      ,total_sales_tax1\r\n\t  ,total_sales_tax2\r\n      ,freight_t\r\n      ,matl_qty\r\n      ,Uf_SF_Application\r\n      ,disc\r\n      ,DLDeleteIndicator\r\n      ,TransRecordDate\r\n      ,due_date\r\n      ,crd\r\n      ,curr_code\r\n      ,slsman\r\n      ,SROCreateDate\r\n      ,TransCreateDate\r\n      ,stat_code\r\n      ,start_date\r\n      ,close_date\r\n      ,bill_stat\r\n      ,sro_stat\r\n      ,partner_id\r\n      ,type\r\n      ,trans_type\r\n      ,posted\r\n      ,inv_num\r\n      ,inv_line)\r\nselect \r\n\ts.sro_num\r\n\t,cast(s.open_date as date) as open_date\r\n\t,s.site_ref\r\n\t,'-' bill_to_country\r\n\t,s.product_code\r\n\t,s.cust_num\r\n\t,t.sro_line\r\n\t,t.sro_oper\r\n\t,t.trans_num\r\n\t,CONCAT(t.sro_line,t.sro_oper,t.trans_num) line\r\n\t,t.item\r\n\t,t.price\r\n\t,s.total_sales_tax1\r\n\t,s.total_sales_tax2\r\n\t,s.freight_t\r\n\t,t.qty matl_qty\r\n\t,s.Uf_SF_Application\r\n\t,t.disc\r\n\t,t.DLDeleteIndicator\r\n\t,cast(t.RecordDate as date) as TransRecordDate\r\n\t,cast(s.due_date as date) as due_date\r\n\t,cast(s.crd as date) as crd\r\n\t,'EUR' curr_code\r\n\t,s.slsman\r\n\t,cast(s.SROCreateDate as date) as SROCreateDate\r\n\t,cast(t.trans_date as date) as TransCreateDate\r\n\t,s.stat_code\r\n\t,cast(s.start_date as date) as start_date\r\n\t,cast(s.close_date as date) as close_date\r\n\t,t.bill_stat\r\n\t,s.sro_stat\r\n\t,s.partner_id\r\n\t,t.type\r\n\t,'I' trans_type\r\n\t,posted\r\n\t,t.inv_num\r\n\t,inv_line\r\nfrom sro s\r\ninner join misc t on\r\n\ts.sro_num = t.sro_num and\r\n\ts.site_ref = t.site_ref\r\n--where misc.rn = 1 and sro.rn = 1"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "load working status",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "stg_service_order_status",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"folder": {
+			"name": "Fact Loads"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-03-07T09:50:35Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

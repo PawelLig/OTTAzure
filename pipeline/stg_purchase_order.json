@@ -1,0 +1,105 @@
+{
+	"name": "stg_purchase_order",
+	"properties": {
+		"activities": [
+			{
+				"name": "stage po header",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete from stg.csi_po_header;\r\n\r\ninsert into stg.csi_po_header\r\nSelect \r\n\tsite_ref\r\n\t,trim(po_num) po_num\r\n\t,dateadd(HOUR,2,cast(order_date as datetime)) order_date\r\n\t,po_cost\r\n\t,vend_num\r\n\t,trim(inv_num) inv_num\r\n\t,dateadd(HOUR,2,cast(inv_date as datetime)) inv_date\r\n\t,curr_code\r\n\t,exch_rate\r\n\t,dateadd(HOUR,2,cast(CreateDate as datetime)) CreateDate\r\n\t,dateadd(HOUR,2,cast(RecordDate as datetime)) RecordDate\r\n\t,stat\r\n\t,type\r\n\t,whse\r\n\t,DLDeleteIndicator\r\nFrom raw.csi_po_mst;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "stage po line",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "stage po header",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete from stg.csi_po_line;\r\n\r\ninsert into stg.csi_po_line\r\nSELECT \r\n\r\n\tsite_ref\r\n\t,trim(po_num) po_num\r\n\t,po_line\r\n\t,item\r\n\t,description\r\n\t,vend_item\r\n\t,blanket_qty\r\n\t,blanket_qty_conv\r\n\t,item_cost\r\n\t,item_cost_conv\r\n\t,plan_cost\r\n\t,plan_cost_conv\r\n\t,unit_mat_cost\r\n\t,unit_mat_cost_conv\r\n\t,stat\r\n\t,u_m\r\n\t,dateadd(HOUR,2,cast(due_date as datetime)) due_date\r\n\t,dateadd(HOUR,2,cast(eff_date as datetime)) eff_date\r\n\t,dateadd(HOUR,2,cast(exp_date as datetime)) exp_date\r\n\t,dateadd(HOUR,2,cast(CreateDate as datetime)) CreateDate\r\n\t,dateadd(HOUR,2,cast(RecordDate as datetime)) RecordDate\r\n\t,DLDeleteIndicator\r\n  FROM raw.csi_po_bln_mst;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "stage po release",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "stage po line",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete from stg.csi_po_release;\r\n\r\ninsert into stg.csi_po_release\r\nselect \r\n\ttrim(po_num) po_num\r\n\t,po_line\r\n\t,po_release\r\n\t,site_ref\r\n\t,item\r\n\t,item_cost\r\n\t,plan_cost\r\n\t,po_vend_num\r\n\t,qty_ordered\r\n\t,qty_ordered_conv\r\n\t,qty_received\r\n\t,qty_rejected\r\n\t,qty_returned\r\n\t,dateadd(HOUR,2,cast(release_date as datetime)) release_date\r\n\t,dateadd(HOUR,2,cast(promise_date as datetime)) promise_date\r\n\t,dateadd(HOUR,2,cast(rcvd_date as datetime)) rcvd_date\r\n\t,dateadd(HOUR,2,cast(due_date as datetime)) due_date\r\n\t,dateadd(HOUR,2,cast(RecordDate as datetime)) RecordDate\r\n\t,dateadd(HOUR,2,cast(CreateDate as datetime)) CreateDate\r\n\t,u_m\r\n\t,whse\r\n\t,stat\r\n\t,DLDeleteIndicator\r\nFrom raw.csi_poitem_mst;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"folder": {
+			"name": "Stage Loads"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-03-07T07:59:29Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

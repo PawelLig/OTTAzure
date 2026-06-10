@@ -1,0 +1,63 @@
+{
+	"name": "testOnPremToAzure_TW",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy data1",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": "SELECT *\n  FROM [di_prd_staging].[dbo].[csi_aptrxp_mst]\n",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "SqlMISink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_on_prem_ott_global",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "sql_destination_table_staging",
+						"type": "DatasetReference",
+						"parameters": {
+							"table_name": "dbo.csi_aptrxp_mst"
+						}
+					}
+				]
+			}
+		],
+		"folder": {
+			"name": "Testing/OnPremToAzure"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-04-23T11:48:32Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

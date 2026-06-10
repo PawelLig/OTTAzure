@@ -1,0 +1,21 @@
+{
+	"name": "ls_ott_global",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "SqlServer",
+		"typeProperties": {
+			"server": "EWQMUCERP-PBI.ott.ewqg.com",
+			"database": "OTTGlobal",
+			"encrypt": "optional",
+			"trustServerCertificate": false,
+			"authenticationType": "SQL",
+			"userName": "powerbietl",
+			"encryptedCredential": "eyJDcmVkZW50aWFsSWQiOiJjMTgxNzM2NS1kNWQyLTRmYzktYmY4OC1iYzYyMmVkOWQwMmQiLCJWZXJzaW9uIjoiMi4wIiwiQ2xhc3NUeXBlIjoiTWljcm9zb2Z0LkRhdGFQcm94eS5Db3JlLkludGVyU2VydmljZURhdGFDb250cmFjdC5DcmVkZW50aWFsU1UwNkNZMTQifQ=="
+		},
+		"connectVia": {
+			"referenceName": "irkempten",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

@@ -1,0 +1,13 @@
+{
+	"name": "ds_on_prem_ott_global",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_ott_staging_onPrem",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,105 @@
+{
+	"name": "dim_load_customer",
+	"properties": {
+		"activities": [
+			{
+				"name": "stage customer",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "truncate table stg.csi_Customer;\n\nWith ADDR As\n(Select \n\trow_number() over (partition by site_ref ,cust_num order by VariationNumber desc) rn\n\t,cust_num\n\t,Name\n\t,cust_seq\n\t,CAST(RecordDate as date) RecordDate\n\t,site_ref\n\t,country\nFrom raw.csi_custaddr_mst\nwhere \ncust_seq = 0 )\n,cust as\n(select\n\tROW_NUMBER() over (partition by site_ref, cust_num order by VariationNumber desc) rn\n\t,cust_num\n\t,site_ref\n\t,cust_type\n\t,stat\n\t,uf_sf_customer_type\n\t,uf_sf_accountid\nfrom raw.csi_customer_mst\nwhere cust_seq = 0)\nINSERT INTO stg.csi_Customer\n           (cust_num\n           ,name\n           ,country\n           ,cust_type\n           ,stat\n           ,uf_sf_customer_type\n           ,uf_sf_accountid\n           ,site_ref)\nSelect \n\tADDR.cust_num\n\t,ADDR.name\n\t,ADDR.country\n\t,cust.cust_type\n\t,cust.stat\n\t,cust.uf_sf_customer_type\n\t,cust.uf_sf_accountid\n\t,ADDR.site_ref\nFrom ADDR\ninner join cust on \n\tADDR.site_ref = cust.site_ref and\n\tADDR.cust_num = cust.cust_num\nWhere ADDR.rn = 1 and cust.rn = 1 ;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "load temp_DimCustomer",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "stage customer",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete from temp_DimCustomer;\n\ninsert into temp_DimCustomer\n(\n\tCustomerNumber\n\t,CustomerName\n\t,Country\n\t,CountryCode\n\t,CustomerType\n\t,CustomerStatus\n\t,SFCustomerType\n\t,Site\n\t,cus_h_key\n)\nSELECT \n\tcust_num\n\t,name\n\t,country\n\t,'CA'\n\t,cust_type\n\t,stat\n\t,uf_sf_customer_type\n\t,site_ref\n\t,HASHBYTES('SHA1', concat(cust_num,cust_type,site_ref)) cus_h_key\nFROM stg.csi_Customer;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "load Dim_Customer",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "load temp_DimCustomer",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "merge edw.Dim_Customer as tgt\n\tusing (select CustomerNumber, CustomerName, Country, CountryCode, CustomerType, CustomerStatus, SFCustomerType, Site from temp_DimCustomer) as src\n\ton (tgt.CustomerNumber = src.CustomerNumber and\n\t\ttgt.Site = src.Site)\nwhen matched then\n\tupdate\n\t\tset CustomerName = tgt.CustomerName\nwhen not matched then\n\tinsert (CustomerNumber, CustomerName, Country, CountryCode, CustomerType, CustomerStatus, SFCustomerType, Site)\n\tvalues (src.CustomerNumber, src.CustomerName, src.Country, src.CountryCode, src.CustomerType, src.CustomerStatus, src.SFCustomerType, src.Site);"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"folder": {
+			"name": "Dimention Loads"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-13T13:37:54Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

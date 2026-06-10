@@ -1,0 +1,24 @@
+{
+	"name": "sql_destination_table",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_ott_sql_dev_bi",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"table_name": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlMITable",
+		"schema": [],
+		"typeProperties": {
+			"table": {
+				"value": "@dataset().table_name",
+				"type": "Expression"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

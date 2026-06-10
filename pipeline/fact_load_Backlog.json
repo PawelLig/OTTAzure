@@ -1,0 +1,72 @@
+{
+	"name": "fact_load_Backlog",
+	"properties": {
+		"activities": [
+			{
+				"name": "load backlog",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete from edw.Fact_Backlog;\r\n\r\ninsert into edw.Fact_Backlog\r\nselect * from edw.Fact_Bookings where Complete = 0;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "load backlog snapshot",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "load backlog",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "delete from edw.Fact_Backlog_Snapshot where ProcessDate = cast(GETDATE() as date);\r\n\r\ninsert into edw.Fact_Backlog_Snapshot\r\nSELECT SourceSystemID\r\n      ,Site\r\n      ,BilltoCountryCode\r\n      ,BilltoCountry\r\n      ,BilltoState\r\n      ,BilltoZipCode\r\n      ,ShiptoCountryCode\r\n      ,ShiptoCountry\r\n      ,ShiptoState\r\n      ,ShiptoZipCode\r\n      ,OrderNumber\r\n      ,OrderLine\r\n      ,TransDate\r\n      ,OrderDate\r\n      ,Freight\r\n      ,Tax\r\n      ,CustomerID\r\n      ,ItemID\r\n      ,Price\r\n      ,Discount\r\n      ,Quantity\r\n      ,Amount\r\n      ,Currency\r\n      ,IntRepName\r\n      ,ExtRepName\r\n      ,PlannedDeliveryDate\r\n      ,CustomerRequestDate\r\n      ,DeliveryDate\r\n      ,ApplicationID\r\n      ,RecordDate\r\n      ,OrderLineStatus\r\n      ,OrderType\r\n      ,Complete\r\n\t  ,cast(GETDATE() as date) ProcessDate\r\n  FROM edw.Fact_Backlog\r\n  ;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"folder": {
+			"name": "Fact Loads"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-13T13:37:54Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,39 @@
+{
+	"name": "lkup_load_currancy",
+	"properties": {
+		"activities": [
+			{
+				"name": "stg currancy rates",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "ls_ott_sql_dev_bi",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "truncate table stg.delft_cur_rates;\n\nwith cur as\n (select \n\tROW_NUMBER() over (partition by site_ref, from_curr_code, to_curr_code, eff_date order by VariationNumber desc)rn\n\t,site_ref\n\t,from_curr_code\n\t,to_curr_code\n\t,buy_rate\n\t,sell_rate\n\t,dateadd(HOUR,2, CAST(eff_date as datetime)) as eff_date\n  from [raw].[csi_currate_mst]\n  where DLDeleteIndicator = 0)\n  insert into stg.delft_cur_rates\n  select \n\tsite_ref\n\t,from_curr_code\n\t,to_curr_code\n\t,buy_rate\n\t,sell_rate\n\t,eff_date\n  from cur where rn = 1;\n"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"folder": {
+			"name": "Stage Loads"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-13T13:37:54Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

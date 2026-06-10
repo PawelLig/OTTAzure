@@ -1,0 +1,320 @@
+{
+	"name": "create_csv",
+	"properties": {
+		"activities": [
+			{
+				"name": "rq_api_token",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/x-www-form-urlencoded"
+					},
+					"url": "https://mingle-sso.eu1.inforcloudsuite.com:443/C5C9HP77DP74CQQC_PRD/as/token.oauth2",
+					"body": "grant_type=password&client_id=C5C9HP77DP74CQQC_PRD~h1-2MAZS8LYV8lvs8lTnihvLMfz-ZsXrwHrBjLWJf4c&client_secret=aXk-5K_RkA3FlD8dPvM55XjnFnduuTvJg90Pfk6-dGylJg_qoBWNHP67z2YGxJA5UBTfVcw3m9Gmpe2vFWjaYQ&username=C5C9HP77DP74CQQC_PRD#Nl3H49d_GdFOGh-oUxhxpnqsqEkfOW3Vtl7SlpZUZWeDw4kR2666EorygSiBePLX4iLv6v0asyqma-_xtpngMw&password=F6blmSf3UEJyomGGbWvEk1y6u2e9buUcqfG6TWvX4rFQX1b3ZLgw9Obm_20fwJwh955DCt7ykGQR-L2K8HiK2Q"
+				}
+			},
+			{
+				"name": "Set access_token",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "rq_api_token",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "access_token",
+					"value": {
+						"value": "@concat('Bearer ', activity('rq_api_token').output.access_token)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "POST co sql_query",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Set access_token",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Authorization": {
+							"value": "@variables('access_token')",
+							"type": "Expression"
+						},
+						"Content-Type": "text/plain",
+						"Accept-Encoding": "gzip, deflate, br"
+					},
+					"url": {
+						"value": "@pipeline().parameters.base_url",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "@concat('select * from ',pipeline().parameters.param_table_name)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set query_id",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "POST co sql_query",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "query_id",
+					"value": {
+						"value": "@activity('POST co sql_query').output.queryId",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Until1",
+				"type": "Until",
+				"dependsOn": [
+					{
+						"activity": "Set query_id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@or(or(equals(variables('api_status'),'FINISHED'),\n    equals(variables('api_status'), 'FAILED')),\n    equals(variables('api_status'), 'CANCELLED'))",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "query_status",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "GET",
+								"headers": {
+									"Authorization": {
+										"value": "@variables('access_token')",
+										"type": "Expression"
+									},
+									"Accept-Encoding": "gzip, deflate, br"
+								},
+								"url": {
+									"value": "@concat(pipeline().parameters.base_url,variables('query_id'),'/status')",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "job_status",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "query_status",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "api_status",
+								"value": {
+									"value": "@activity('query_status').output.status",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"timeout": "0.12:00:00"
+				}
+			},
+			{
+				"name": "load raw data",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Until1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "HttpReadSettings",
+							"requestMethod": "GET",
+							"additionalHeaders": {
+								"value": "@concat('Authorization: ', variables('access_token'))",
+								"type": "Expression"
+							}
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings",
+							"copyBehavior": "FlattenHierarchy"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "csv_source_dataset",
+						"type": "DatasetReference",
+						"parameters": {
+							"import_url": {
+								"value": "@concat(pipeline().parameters.base_url,variables('query_id'),'/result/?limit=100000&offset=0')",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "parqut_destination",
+						"type": "DatasetReference",
+						"parameters": {
+							"para_table_name": "csi_co_mst"
+						}
+					}
+				]
+			},
+			{
+				"name": "set table structure",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Until1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "table_structure",
+					"value": {
+						"value": "@activity('query_status').output.columns",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"base_url": {
+				"type": "string",
+				"defaultValue": "https://mingle-ionapi.eu1.inforcloudsuite.com/C5C9HP77DP74CQQC_PRD/DATAFABRIC/compass/v2/jobs/"
+			},
+			"param_table_name": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"access_token": {
+				"type": "String"
+			},
+			"query_url": {
+				"type": "String"
+			},
+			"query_id": {
+				"type": "String"
+			},
+			"api_status": {
+				"type": "String"
+			},
+			"table_structure": {
+				"type": "Array"
+			}
+		},
+		"folder": {
+			"name": "Testing"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-02-13T13:37:54Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}
